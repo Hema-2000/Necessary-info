@@ -1,0 +1,419 @@
+To set SGID
+*  What are the process states in linux
+
+  *  How to find out the linux kernel version and how to upgrade kernel ?.
+  To check the kernel version use any of the following command.
+[root@node213 ~]# uname -a
+Linux node213.example.com 2.6.18-348.el5 #1 SMP Wed Nov 28 21:22:00 EST 2012 x86_64 x86_64 x86_64 GNU/Linux
+[root@node213 ~]# uname -r
+2.6.18-348.el5
+[root@node213 ~]# cat /proc/version
+Linux version 2.6.18-348.el5 (mockbuild@x86-002.build.bos.redhat.com) (gcc version 4.1.2 20080704 (Red Hat 4.1.2-54)) #1 SMP Wed Nov 28 21:22:00 EST 2012
+
+To upgrade the kernel , download the kernel rpm file and install it using rpm -ivh command. Don’t use rpm -Uvh, because it will upgrade the existing kernel and we won’t able to go to the previous kernel version at any point of time. If we require to remove the old kernel, use rpm -e and also remove the entry form /etc/grub.conf file.
+
+*  List the 6 stages of boot process ?
+
+BIOS,  MBR,  GRUB, Kernel, init, runlevel.
+
+*  How to mount an ISO file ?
+[root@node213 mnt]# mount   -o   loop   /tmp/rhel-server-7.0-x86_64-dvd.iso   /mnt
+
+*  Which are the runlevels in linux ?
+runlevel 0  –  Halt/ Shutdown .
+runlevel 1  –  Single user mode.
+runlevel 2  –  Multi user mode without network.
+runlevel 3  –  Multi user mode with network.
+runlevel 4  –  unused.
+runlevel 5  –  Graphical.
+runlevel 6  –  Reboot
+
+*  Explain the entries in fstab ?
+
+[root@node213 mnt]# cat /etc/fstab
+LABEL=/1                       /                    ext3    defaults        1 1
+LABEL=/home               /home             ext3    defaults        1 2
+LABEL=/boot                /boot              ext3    defaults        1 2
+
+device to mount mount point file system type mount options dump fscheck.
+
+Mount Options :
+ro  –  read only,  rw  –  read write,  user  –  user can mount,  exec  –  script can be execute,  noexec  –  script can’t be execute,  noauto  –  partition will not mount automatically,  auto  –  mounts automatically,  sync  –  input and output will synchronize.
+Dumping and fsck
+Dumping is an outdated option for backup for cases when system went down, 0 – stands for False and 1 – stands for true. Now a days we can leave this as 0.
+fsck – This parameters is for file system check . The partitions  will go for fsck based on the order given. The / partition should have value 1 and next partitions can take 2,3.. as well. 0 stands for no fsck.
+
+*  Explain about file system ?
+
+File system is the hierarchy of directories that is used to organize files in computer.Each file system contains a control block ( which contains information about that file system ) and inodes ( Which contains information about each files and data blocks).
+Metadata contains the information about the entire data (one or more pieces of data) , ie file name, owner,creation date, location etc. whereas inode is a type of metadata which contains the information about a regular file, directory, or other file system object such as permission, owner and group, file size, access and modification time, number of links etc . Linux never store the file creation time.
+Superblock is a filesystem metadata which defines the file system type, size, status, and information about other metadata structures.The superblock is the very critiical to the file system and thus in each file system there may be multiple copies of superblock. Incase superblock become corrupt and at that point of time fsck will automatically select an alternate backup of the superblock and attempt to recover the filesystem. For the manual recovery of superblock, we can use dumpe2fs command to find out the backup and then fsck.
+
+[root@node213 mnt]# dumpe2fs /dev/sda2 |grep -i superblock
+dumpe2fs 1.39 (29-May-2006)
+Primary superblock at 0, Group descriptors at 1-5
+Backup superblock at 32768, Group descriptors at 32769-32773
+Backup superblock at 98304, Group descriptors at 98305-98309
+Backup superblock at 163840, Group descriptors at 163841-163845
+Backup superblock at 229376, Group descriptors at 229377-229381
+Backup superblock at 294912, Group descriptors at 294913-294917
+
+superblocks are existing on the first sector of a filesystem. It contains the location of inode table.
+
+  *  How can convert from one file system to another ?.
+To convert from ext2 to ext3,
+1) umount the partiton
+2) tune2fs -j
+3) change the fstab entry (change 3rd parameter as ext3)
+4) reboot or mount file system.
+To convert from ext3 to ext4
+1) umount the partition
+2) [root@node213 tmp]# tune2fs -O extents,uninit_bg,dir_index /dev/sdb1
+3) fsck -pf /dev/sdb1
+4) mount -t ext4 /dev/sdb1
+5) Change fstab entry.and reboot
+No need to format the filesystem after conversion. tune2fs -l command will list the current features of the file system.
+  *  Explain about Linux users and groups ?.
+Linux consist of three types of users
+1)  system user  (id 0 to 499)
+2)  root user  (id  =  0)
+3) Local users  (id >499).
+useradd command will add new users and at that time /etc/passwd /etc/shadow /etc/group files get updated. To lock and unlock the user we can use usermod  command.
+To check whether a user account is locked, use passwd -S . chage -l will shows various timers
+  *  What is sticky bit and file attributes ?.
+The sticky bit can be assigned to file or directory. If sticky bit is enabled, only the owner or root can delete or rename that file or directory.
+To add sticky bit use chmod +t   ( +t  – will add sticky bit, o-t   –  will remove)  or chmod 1 644 .
+[feapadmin@node212 ~]$ chmod 1644 temp1.txt
+[feapadmin@node212 ~]$ ls -ltr
+total 0
+-rw-r–r-T 1 feapadmin feapadmin 0 Mar  1 18:11 temp1.txt
+The “T” in the output denotes that sticky bit is enabled.
+The attributes is nothing it is prevent anyone including root user from deleting a file. attributes can be set through chattr command.
+[root@node213 /]# chattr +i jo.txt
+[root@node213 /]# lsattr jo.txt
+—-i——– jo.txt
+[root@node213 /]# rm jo.txt
+rm: remove write-protected regular empty file `jo.txt’? y
+rm: cannot remove `jo.txt’: Operation not permitted
+To delete the file we have to remove the attributes using chattr -i command.
+  *  What is ACL
+Access control list can be set to files and directories for read, write and executable permissions to more categories of users and groups. setfacl command can be use to assign the acl permissions and same can view by using getfacl command.
+  *  What is SGID and SUID
+
+SUID (Set owner User ID up on execution) is a special type of file permissions given to a file. Normally in Linux/Unix when a program runs, it inherits access permissions from the logged in user. SUID is defined as giving temporary permissions to a user to run a program/file with the permissions of the file owner rather that the user who runs it. In simple words users will get file owner’s permissions as well as owner UID and GID when executing a file/program/command.
+
+[root@server1 ~]# ls -ltr /usr/bin/passwd
+-r-sr-sr-x. 1 root root 30768 Feb 17  2012 /usr/bin/passwd
+
+The first s stands for SUID and second S stands for SGID.
+SUID can be used in such situations,
+
+1) Where root login is required to execute some commands/programs/scripts.
+2) Where you don’t want to give credentials of a particular user, but want to run some programs as the owner.
+3) Where you don’t want to use SUDO command, but want to give execute permission for a file/script etc.
+To set SUID
+[root@server1 ~]#  chmod  4555 .
+[root@server1 tmp]# ls -ltr
+-r-sr-xr-x 1 root root 0 Mar  1 23:47
+
+SGID permission is similar to the SUID permission, only difference is – when the script or command with SGID on is run, it runs as if it were a member of the same group in which the file is a member.
+
+[root@server1 ~]#  chmod 2555
+
+[root@server1 tmp]# ls -ltr
+ 
+
+-r-xr-sr-x 1 root root 0 Mar  1 23:47
+*  How we can check system performance?
+
+a)  CPU utilization  –  To check CPU performance use the following commands,
+1)  top  –  It display CPU usage, Memory usage, Swap Memory, Cache Size, Buffer Size, Process PID, User, Commands and much more
+2)  vmstat  –  To display statistics of virtual memory, kernerl threads, disks, system processes, I/O blocks, interrupts, CPU activity and much more.
+3)  lsof  –  To display list of all the open files and the processes. The open files included are disk files, network sockets, pipes, devices and processes.
+4)  tcpdump  –  A command-line network packet analyzer or packets sniffer program that is used capture or filter TCP/IP packets that received or transferred on a specific interface over a network.
+5)  netstat  –  A command line tool for monitoring incoming and outgoing network packets statistics as well as interface statistics.
+6)  iotop  –  monitor and display real time Disk I/O and processes. This tool is much useful for finding the exact process and high used disk read/writes of the processes.
+7)  iostat  –  This will collect and show system input and output storage device statistics.This tool is often used to trace storage device performance issues including devices, local disks, remote disks such as NFS.
+8)  iptraf  –   An open source console-based real time network (IP LAN) monitoring utility for Linux. It collects a variety of information such as IP traffic monitor that passes over the network, including TCP flag information, ICMP details, TCP/UDP traffic breakdowns, TCP connection packet and byne counts. It also gathers information of general and detaled interface statistics of TCP, UDP, IP, ICMP, non-IP, IP checksum errors, interface activity etc.
+9)  sar  –  Sar is part of the sysstat package. Using sar utility you can do two things: 1) Monitor system real time performance (CPU, Memory, I/O, etc) 2) Collect performance data in the background on an on-going basis and do analysis on the historical data to identify bottlenecks.
+10)  free  –  Free command displays information about the physical (RAM) and swap memory of your system.
+b)  RAM usage  –  free , cat /proc/meminfo, top, can be used to monitor memory usage.
+c)  HDD usage  –  iotop,  iostat,
+d)  buggy Software  –  Check the software logs .
+e)  Network Checking
+
+  *  What is Server hardening?
+
+It is the process of enhancing server security through a variety of means which results in a much more secure server operating environment. Eg, System access level, fies or directories permission, unwanted services disabling, patch installtion etc..
+
+  *  How to scan and mount newly added LUN in RHEL without reboot?
+
+Once after a new LUN connected to a Linux box through HBA card, we can run the “rescan-scsi-bus.sh ” command which comes with  sg3_utils rpm. Once we finished the script execution, we can able to see the new LUN as raw disk through fdisk utility.
+
+[root@server1 ~]# which rescan-scsi-bus.sh
+/usr/bin/rescan-scsi-bus.sh
+[root@server1 ~]# rpm -qf /usr/bin/rescan-scsi-bus.sh
+sg3_utils-1.28-4.el6.x86_64
+
+* Explain system/ kernel level tuning with example?
+The default UNIX kernel behavior is sub-optimal out of the box because it is difficult to anticipate what type of work or workload the operating system will be assigned. Therefore, UNIX products provide parameters that may change the allocation of critical resources.
+Eg. File Handling Limit  –  The kernel has built-in limits on the number of files that a process can open.
+[root@server1 ~]# cat /proc/sys/fs/file-max
+66034
+
+To change the value temporary,
+[root@server1 ~]# sysctl -w fs.file-max=100000
+fs.file-max = 100000
+ To change the value permanently
+[root@server1 ~]# vi /etc/sysctl.conf
+and add the edit the entry as  fs.file-max = 100000.
+To save the changes run
+[root@server1 ~]# sysctl -p
+Like this we can do socket tuning, process scheduling, etc.
+*  What is the impact of inode fill in file system.
+
+*  What is multipathing in linux
+*  What is hotspare and hotswap ?
+*  Explain about Nagios monitoring tool ?
+
+The NRPE ( Nagios Remote Plugin Executor ) agent will send all the alerts related CPU load, Swap, Memory usage, Online users, etc.  to the nagios monitoring server through port 5666.
+
+*  Why xinetd daemon required ?
+
+The xinetd stands for Extended Internet Services.The xinetd service listens on all ports used by the daemons it controls. When a connection is requested, xinetd determines if the client is allowed access. If the client is allowed access, xinetd starts up the desired service and allows the client to connect.
+
+*   What is the status code 403,404 represented in apache server?
+
+403 represent forbidden error, means if a file misses some selinux security context.
+404 represent that there is a cgi script missing or web pages missing.
+ 
+  *  What is a zombie process?
+  Zombie often called process is a process state when the child dies before the parent process. In this case the structural information of the process is still in the process table
+
+*  Which daemon tracks the events on the linux server.
+
+                                The syslogd daemon tracks all the events of linux server and maintain the log files.
+ 
+
+ *  What are the difference between hard links and soft links.
+ 
+
+                           Soft link or symbolic link or symlink is same as shortcuts in windows OS, an easiest way to link files or directories .
+#  ln  -s  source_file  link_file    –   To create soft link.
+#  ln   source_file  link_file   –   To create hard link.
+Difference  Parameter
+Soft Link
+Hard Link
+Inode
+Inode will be different for both the files
+Inode will be same for both the files
+Deletion of original file
+Deletion of original file, impact on link. Another file will not be accessible.
+Deletion of original file, no impact on link. Another file will be accessible.
+Time to execute
+Access time is slow as compared to hard link
+Access time is fast as compared to soft link
+Cross File System
+In Cross file system, Soft link works
+In cross file system, hard link is not working. Needed same file system
+ 
+
+ *  What is inode number
+ 
+
+                        Inode number or Index number is the entry in inode table containing the informations ( metadata ) of a file or directories . To check the inode number of file or directory , do as follows
+ 
+
+[root@server1 tmp]#   ls -li inode_testing.txt
+ 
+
+  1179668 -rw-r–r– 1 root root 0 Sep 29 11:36 inode_testing.txt
+ 
+
+                               The first field in the above output is the inode number (1179668) . While copying a file or directory the inode number may also change , ie it may allocate a new entry in inode table. While moving, inode number will be same only if the file system is same. Inode number contains the informations like file access, modification, created date and time, group, number of links, owner, permission, etc..
+ 
+
+  *  How to review the boot messages
+ 
+
+                             We can review the logs from /var/log/messages file. or for better way use dmesg command.
+  *  How to make system log rotation to avoid disk space usage
+ 
+
+                                             The /etc/logrotate.conf file can be used to rotate the system logs.
+ 
+
+  *  What is  /etc/passwd file.
+ 
+
+                            The passwd file contains the user account information such as user id, group id, home directory, shell etc..
+#  getent passwd |grep redhat      or    #  cat /etc/passwd
+ 
+
+redhat : x : 500 : 500 : redhat-user : /home/redhat : /bin/bash
+  (1)     (2)  (3)    (4)         (5)                   (6)                 (7)
+ 
+
+The first one is the user name (root) . Second field stands the password, x indicates encrypted password in the /etc/shadow file. Third field is user id (UID), UID 0 is assigned for root user and 1 to 499 is using by other predefined accounts. Fourth field is the group id (GID) stored in /etc/group file. Fifth field is the user ID info location where we can add users such as users full name,phone number etc. . The sixth field is for user home directory . The last and seventh field provides the shell path assigned for the user.
+
+ 
+
+  *  What is shadow file in linux.
+ 
+
+                     The shadow file stores the actual password in encrypted format . It stores a secured user information. Each fields are separated by ( : ).
+#  cat  /etc/shadow
+ 
+
+redhat : $6$cIBzWB05$kqCbIvlNpyz : 16276 : 0 : 99999 : 7 : : :
+ 
+
+  (1)                        (2)                                (3)    (4)    (5)     (6)
+ 
+
+ 
+
+         First field is the user name . Second field is the password which is in encrypted  format. Third field gives the number of days since Jan 1 1970 the password was last changed. Fourth field stands for number of minimum days which the user can change his password, 0 stands for user can change password at any time. Fifth fields stands for the number of days after which password must be changed. Sixth field stands for the number of days to warn the user of an expiring password .  Seventh field stands for the number of days the after password expires the account is disabled . Eight field stands for the number of days the since Jan 1 1970 that an account has been disabled.  The nine field is kept reserved for future use.
+ 
+
+*  What is the importance of updating the kernel and package versions.
+
+                           To enhance the security of the system we should be ensure that we are upgraded to latest kernel version and software packages which contain recent security updates.
+ 
+
+ 
+
+  *  What is the use of sar command.
+ 
+
+                           The sar command collect, report, or save system activity information . It save the information in /var/log/sa directory.
+ 
+
+ 
+
+ 
+
+ *  What is network bonding and network aliases
+ 
+
+                                    Bonding is a Linux kernel feature that allows us to aggregate multiple interfaces (such as eth0, eth1) into a single virtual link such as bond0. This method is  simple to get higher data rates and as well as link failover.
+ 
+
+                      Network alias in linux allows us to add additional network address of same subnet to a single network interface. Eg . eth0:0, eth0:1, etc.
+ 
+
+ 
+
+  *  What is the role of luci and ricci in redhat clustering.
+ 
+
+ 
+
+                          luci is a service which presents the web based cluster interface via https at port 8084. ricci service is the underlying daemon that that helps in cluster configuration sync and file copy , cluster service stop start etc. .It uses tcp port 11111.
+ 
+
+ 
+
+ 
+
+    *  What is the difference between root_squash & no_root_squash in NFS.
+ 
+
+ 
+
+ 
+
+root_squash – If we are putting root_squash, then it will map root UUID/ GID to anonymous UUID/GID. So in client side the client root user will be denied for accessing, creating file in mounted NFS partition.
+ 
+
+ 
+
+no_root_squash  – In no_root_squash , It won’t map root UUID/GID to anonymous user and thus the client root user have all the privileges on the mounted NFS partition.
+*  What command we can  use to find currently mounted drives
+
+                                To find currently mounted drives, the simplest method is to use the mount command. Other commands that can tell about mounted drives are cat /etc/mtab and df.
+ 
+
+ 
+
+  *  What command we can  use to add the /usr/sbin directory to PATH.
+ 
+
+ 
+
+PATH=$PATH:/usr/sbin command. To make it permenent add this entry in .bash_profile file.
+ 
+
+  
+ 
+
+  *  From where we can find more information associated with your CPU
+ 
+
+                              Most closely associated with information on the CPU is /proc/cpuinfo . Along with that /var/log/dmesg will gives less informations.
+ 
+
+ 
+
+Running : The process is either running or it is ready to run .
+Waiting : The process is waiting for an event or for a resource.
+Stopped : The process has been stopped, usually by receiving a signal.
+Zombie : The process is dead but have not been removed from the process table.
+  *  What is the difference between Ext2, Ext3, and Ext4
+                                  The most important difference in Ext2 and Ext3 is Ext3 support journaling. After an unexpected power failure or system crash or unclean system shutdown Ext2 file system may checked for consistency check using e2fsck program . The time taken to recover Ext3 filesystem  is only depend on the default journal size irrespective of the size of filesystem or number of files. Ext4 stands for fourth extend file system. It also support journaling.
+Ext2  ==  Maximum file size  –  16GB to 2 TB.
+                Maximum filesystem size  –  2 TB to 32 TB.
+Ext3  ==  Maximum file size  –  16GB to 2 TB.
+                Maximum filesystem size  –  2 TB to 32 TB
+Ext4  ==  Maximum file size  –  16GB to 16 TB.
+                Maximum filesystem size  –  1 EB.
+  *  How to change the expiration date of user password
+                               We can use chage command to change the password expiry of a user.
+Advertisements
+
+Report this ad
+
+Report this ad
+Share this:
+TwitterFacebookGoogle
+Loading...
+
+
+Published by Joice Joseph
+View all posts by Joice Joseph
+
+Post navigation
+PREVIOUS
+Previous post:Steps to enable telnet in Linux
+ONE THOUGHT ON “LINUX INTERVIEW QUESTIONS AND ANSWERS FOR L2 AND L3 ENGINEERS” Add Comment
+rohit
+April 8, 2018 at 6:40 pm
+these question really helpfull in my placement
+
+Like
+
+Reply
+LEAVE A REPLY
+
+Enter your comment here...
+Search for:
+Search
+ Search
+ARCHIVES Archives
+=======================================================
+To scan newly asssigned luns on linux box without rebooting
+-------------------------------------------------------------
+
+[root@localhost Packages]# pwd
+cd /media/RHEL_6.3 x86_64 Disc 1/Packages
+
+rpm -ivh sg3_utils-1.28-4.el6.x86_64.rpm
+
+# which rescan-scsi-bus.sh
+/usr/bin/rescan-scsi-bus.sh
+
+   (or)
+
+for i in 0 1 2 3 4 5 6 7 ; do echo "- - -" > /sys/class/scsi_host/host$i/scan; done
+
+
